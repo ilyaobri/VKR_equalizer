@@ -1,0 +1,6 @@
+"./Core/GUI.o"
+"./Core/main.o"
+"./Core/stm32h7xx_hal_msp.o"
+"./Core/stm32h7xx_it.o"
+"./Core/system_stm32h7xx.o"
+"./Core/test.o"
