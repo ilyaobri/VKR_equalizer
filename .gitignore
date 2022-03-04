@@ -50,3 +50,7 @@ modules.order
 Module.symvers
 Mkfile.old
 dkms.conf
+
+lcd_cube/cmake-build-debug/
+
+lcd_cube/.idea/
