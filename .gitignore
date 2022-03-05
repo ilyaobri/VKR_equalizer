@@ -54,3 +54,9 @@ dkms.conf
 lcd_cube/cmake-build-debug/
 
 lcd_cube/.idea/
+
+vkr_lcd/cmake-build-debug/
+
+vkr_lcd/.idea/
+
+vkr_lcd/.DS_Store

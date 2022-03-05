@@ -5,27 +5,66 @@
 #include "main.h"
 #include "stm32h7xx_hal.h"
 
-#define LCD_SETX_CMD 0x2A
-#define LCD_SETY_CMD 0x2B
-#define LCD_WRAM_CMD 0x2C
-#define LCD_RRAM_CMD 0x2E
-
-#define USE_HORIZONTAL     0
-
-#define LCD_WIDTH 240
-#define LCD_HEIGHT 320
-
-#define LCD_REGION_NUMBER  MPU_REGION_NUMBER0
-#define LCD_ADDRESS_START  0x60000000
-#define LCD_REGION_SIZE    MPU_REGION_SIZE_256MB
+typedef enum {
+    LCD_CMD_SLEEP_OUT = 0x11,
+    LCD_CMD_GAMMA_SET = 0x26,
+    LCD_CMD_DISPLAY_OFF = 0x28,
+    LCD_CMD_DISPLAY_ON = 0x29,
+    LCD_CMD_COLUMN_ADDRESS_SET = 0x2A,
+    LCD_CMD_PAGE_ADDRESS_SET = 0x2B,
+    LCD_CMD_MEMORY_WRITE = 0x2C,
+    LCD_CMD_COLOR_SET = 0x2D,
+    LCD_CMD_MEMORY_READ = 0x2E,
+    LCD_CMD_MEMORY_ACCESS_CONTROL = 0x36,
+    LCD_CMD_PIXEL_FORMAT_SET = 0x3A,
+    LCD_CMD_FRAME_RATE_CONTROL = 0xB1,
+    LCD_CMD_DISPLAY_FUNCTION_CONTROL = 0xB6,
+    LCD_CMD_POWER_CONTROL_1 = 0xC0,
+    LCD_CMD_POWER_CONTROL_2 = 0xC1,
+    LCD_CMD_VCOM_CONTROL_1 = 0xC5,
+    LCD_CMD_VCOM_CONTROL_2 = 0xC7,
+    LCD_CMD_POWER_CONTROL_A = 0xCB,
+    LCD_CMD_POWER_CONTROL_B = 0xCF,
+    LCD_CMD_READ_ID4 = 0xD3,
+    LCD_CMD_READ_ID1 = 0xDA,
+    LCD_CMD_READ_ID2 = 0xDB,
+    LCD_CMD_READ_ID3 = 0xDC,
+    LCD_CMD_POSITIVE_GAMMA_CORRECTION = 0xE0,
+    LCD_CMD_NEGATIVE_GAMMA_CORRECTION = 0xE1,
+    LCD_CMD_DRIVER_TIMING_CONTROL_A0 = 0xE8,
+    LCD_CMD_DRIVER_TIMING_CONTROL_A1 = 0xE9,
+    LCD_CMD_DRIVER_TIMING_CONTROL_B = 0xEA,
+    LCD_CMD_POWER_ON_SEQUENCE_CONTROL = 0xED,
+    LCD_CMD_ENABLE_3G = 0xF2,
+    LCD_CMD_PUMP_RATIO_CONTROL = 0xF7
+} lcd_cmd_t;
 
 typedef struct {
-    vu16 LCD_REG;
-    vu16 LCD_RAM;
-} LCD_TypeDef;
+    vu16 *cmd;
+    vu16 *data;
+} lcd_regs_t;
 
-#define LCD_BASE ((u32)(LCD_ADDRESS_START | 0x0007FFFE))
-#define LCD ((LCD_TypeDef *) LCD_BASE)
+typedef struct {
+    GPIO_TypeDef* port;
+    u16 pin;
+} lcd_led_t;
+
+typedef struct {
+    lcd_regs_t regs;
+    lcd_led_t led;
+
+    u32 width;
+    u32 height;
+    u32 direction;
+
+    u32 columns;
+    u32 pages;
+} lcd_t;
+
+typedef struct {
+    u8 ic_version;
+    u16 ic_model;
+} lcd_id4_t;
 
 #define WHITE       0xFFFF
 #define BLACK       0x0000
@@ -50,39 +89,20 @@ typedef struct {
 #define LGRAYBLUE   0xA651
 #define LBBLUE      0x2B12
 
+void lcd_config_regs(lcd_t *lcd, u32 base, u8 dc_pin);
 
-#define LCD_LED_CLR() HAL_GPIO_WritePin(LCD_LED_GPIO_Port, LCD_LED_Pin, GPIO_PIN_RESET)
-#define LCD_LED_SET() HAL_GPIO_WritePin(LCD_LED_GPIO_Port, LCD_LED_Pin, GPIO_PIN_SET)
+void lcd_config_led(lcd_t *lcd, GPIO_TypeDef* led_port, u16 led_pin);
 
-static inline void LCD_WR_REG(u16 data) {
-    LCD->LCD_REG = data;
-}
+void lcd_config_size(lcd_t *lcd, u32 width, u32 height, u8 direction);
 
-static inline void LCD_WR_DATA(u16 data) {
-    LCD->LCD_RAM = data;
-}
+void lcd_cmd_read_id4(lcd_t *lcd, lcd_id4_t *id4);
 
-static inline vu16 LCD_RD_DATA(void) {
-    return LCD->LCD_RAM;
-}
+void lcd_frame(lcd_t *lcd, u16 *frame);
 
-static inline void LCD_ReadReg(u16 LCD_Reg, u8 *buffer, s32 size) {
-    LCD_WR_REG(LCD_Reg);
-    for (s32 k = 0; k < size; k++) {
-        buffer[k] = LCD_RD_DATA();
-        HAL_Delay(1);  // 1 ms
-    }
-}
+void lcd_fill(lcd_t *lcd, u16 color);
 
-static inline u16 LCD_Read_ID(void) {
-    u8 val[4] = {0};
-    LCD_ReadReg(0xD3, val, sizeof(val));
-    return (val[2] << 8) | val[3];
-}
+void lcd_init(lcd_t *lcd);
 
-void LCD_direction(u8 direction);
-void LCD_SetWindows(u16 x_start, u16 y_start, u16 x_end, u16 y_end);
-void LCD_Clear(u16 Color);
-void LCD_Init();
+void lcd_led(lcd_t *lcd, u32 state);
 
 #endif //LCD_CUBE_LCD_H
