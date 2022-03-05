@@ -5,12 +5,8 @@
 #include <assert.h>
 #include "lcd.h"
 
-#define LCD_CMD        ((vu16*)(0x60000000 | 0x0007FFFC))
-
 static void lcd_write_cmd(lcd_t *lcd, u16 cmd) {
-//    *lcd->regs.cmd = cmd;
-    vu16 *address = LCD_CMD;
-    *address = cmd;
+    *lcd->regs.cmd = cmd;
 }
 
 static void lcd_write_data(lcd_t *lcd, u16 data) {
@@ -27,13 +23,16 @@ static void lcd_led_write(lcd_t *lcd, GPIO_PinState state) {
 
 static void lcd_write_buf(lcd_t *lcd, u16 cmd, u8 *buffer, s32 size) {
     lcd_write_cmd(lcd, cmd);
+    HAL_Delay(1);
     for (s32 k = 0; k < size; k++) {
         lcd_write_data(lcd, buffer[k]);
+        HAL_Delay(1);
     }
 }
 
 static void lcd_read_buf(lcd_t *lcd, u16 cmd, u8 *buffer, s32 size) {
     lcd_write_cmd(lcd, cmd);
+    HAL_Delay(1);
     for (s32 k = 0; k < size; k++) {
         buffer[k] = lcd_read_data(lcd);
     }
