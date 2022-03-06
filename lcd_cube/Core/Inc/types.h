@@ -39,4 +39,6 @@ typedef volatile const uint32_t vuc32;
 typedef volatile const uint16_t vuc16;
 typedef volatile const uint8_t vuc8;
 
+typedef const char* string;
+
 #endif //LCD_CUBE_TYPES_H
