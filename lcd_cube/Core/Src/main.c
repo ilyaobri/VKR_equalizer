@@ -17,6 +17,7 @@
   */
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
+#include <stdio.h>
 #include "main.h"
 
 /* Private includes ----------------------------------------------------------*/
@@ -104,16 +105,11 @@ int main(void)
 
   lcd_config_regs(&lcd, 0x60000000, 19);
   lcd_config_led(&lcd, LCD_LED_GPIO_Port, LCD_LED_Pin);
-  lcd_config_size(&lcd, 320, 240, 0);
+  lcd_config_size(&lcd, 320, 240, 1);
 
   lcd_init(&lcd);
 
-  lcd_id4_t lcd_id4;
-
-  lcd_cmd_read_id4(&lcd, &lcd_id4);
-
-  lcd_led(&lcd, 1);
-  lcd_fill(&lcd, RED);
+//  lcd_fill(&lcd, RED);
 
   /* USER CODE END 2 */
 

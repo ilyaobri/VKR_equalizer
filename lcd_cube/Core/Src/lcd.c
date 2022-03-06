@@ -5,6 +5,8 @@
 #include <assert.h>
 #include "lcd.h"
 
+// -------------------- low-level io functions --------------------
+
 static void lcd_write_cmd(lcd_t *lcd, u16 cmd) {
     *lcd->regs.cmd = cmd;
 }
@@ -46,9 +48,11 @@ do { \
 
 #define LCD_READ(lcd, command, buffer, size) \
     u8 buffer[size] = {0}; \
-    lcd_read_buf(lcd, command, buffer, sizeof(buffer)); \
+    do {                                     \
+        lcd_read_buf(lcd, command, buffer, sizeof(buffer)); \
+    } while (0)
 
-
+// -------------------- command functions --------------------
 
 /**
  * @param my Row Address Order
@@ -89,7 +93,29 @@ void lcd_cmd_sleep_out(lcd_t *lcd) {
     LCD_WRITE(lcd, LCD_CMD_SLEEP_OUT);
 }
 
+u32 lcd_cmd_read_display_status(lcd_t *lcd) {
+    LCD_READ(lcd, LCD_CMD_READ_DISPLAY_STATUS, params, 5);
 
+    u8 v4 = xbits_u32(params[1], 7, 1);  // D [31:25]
+
+    u8 v3 = xbits_u32(params[2], 6, 4);  // D [22:20]
+    u8 v2 = xbits_u32(params[2], 3, 0);  // D [19:16]
+
+    u8 v1 = xbits_u32(params[3], 2, 0);  // D [10:8]
+    u8 v0 = xbits_u32(params[4], 7, 5);  // D [7:5]
+
+    u32 result = 0;
+
+    insert_u32(&result, v4, 31, 25);
+    insert_u32(&result, v3, 22, 20);
+    insert_u32(&result, v2, 19, 16);
+    insert_u32(&result, v1, 10, 8);
+    insert_u32(&result, v0, 7, 5);
+
+    return result;
+}
+
+// -------------------- lcd_t configuration functions --------------------
 
 void lcd_config_regs(lcd_t *lcd, u32 base, u8 dc_pin) {
     u32 offset = base | 1 << dc_pin;
@@ -139,6 +165,12 @@ void lcd_direction(lcd_t *lcd) {
 }
 
 void lcd_init(lcd_t *lcd) {
+    lcd_id4_t lcd_id4;
+
+    lcd_cmd_read_id4(lcd, &lcd_id4);
+
+    vu32 status1 = lcd_cmd_read_display_status(lcd);
+
     LCD_WRITE(lcd, LCD_CMD_POWER_CONTROL_B, 0x00, 0xD9, 0x30);
     LCD_WRITE(lcd, LCD_CMD_POWER_ON_SEQUENCE_CONTROL, 0x64, 0x03, 0x12, 0x81);
     LCD_WRITE(lcd, LCD_CMD_DRIVER_TIMING_CONTROL_A0, 0x85, 0x10, 0x7A);
@@ -175,9 +207,21 @@ void lcd_init(lcd_t *lcd) {
 
     lcd_cmd_display_on(lcd);
 
+    lcd_led_write(lcd, GPIO_PIN_SET);
+
     lcd_direction(lcd);
-//    lcd_led_write(lcd, GPIO_PIN_SET);
-//    lcd_fill(lcd, CYAN);
+
+    vu32 status2 = lcd_cmd_read_display_status(lcd);
+
+    lcd_fill(lcd, WHITE);
+
+    lcd_led_write(lcd, GPIO_PIN_SET);
+
+    lcd_status_t lcd_status1 = { 0 };
+    lcd_status_t lcd_status2 = { 0 };
+
+    lcd_parse_status(status1, &lcd_status1);
+    lcd_parse_status(status2, &lcd_status2);
 }
 
 u32 lcd_prepare_draw(lcd_t *lcd) {
@@ -206,4 +250,27 @@ void lcd_fill(lcd_t *lcd, u16 color) {
 
 void lcd_led(lcd_t *lcd, u32 state) {
     lcd_led_write(lcd, state);
+}
+
+// -------------------- lcd aux functions --------------------
+
+void lcd_parse_status(u32 status, lcd_status_t *lcd_status) {
+    lcd_status->gamma_curve = LCD_STATUS_GAMMA_CURVE(status);
+    lcd_status->display_on = LCD_STATUS_DISPLAY_ON(status);
+    lcd_status->all_pixel_off = LCD_STATUS_ALL_PIXEL_OFF(status);
+    lcd_status->all_pixel_on = LCD_STATUS_ALL_PIXEL_OFF(status);
+    lcd_status->inversion_status = LCD_STATUS_INVERSION_STATUS(status);
+    lcd_status->vertical_scrolling = LCD_STATUS_VERTICAL_SCROLLING(status);
+    lcd_status->normal_mode = LCD_STATUS_NORMAL_MODE(status);
+    lcd_status->sleep_out = LCD_STATUS_SLEEP(status);
+    lcd_status->partial_mode = LCD_STATUS_PARTIAL_MODE(status);
+    lcd_status->idle_mode = LCD_STATUS_IDLE_MODE(status);
+    lcd_status->color_pixel_format = LCD_STATUS_COLOR_PIXEL_FORMAT(status);
+    lcd_status->horizontal_refresh_order = LCD_STATUS_HORIZONTAL_REFRESH_ORDER(status);
+    lcd_status->rgb_bgr_order = LCD_STATUS_RGB_BGR_ORDER(status);
+    lcd_status->vertical_refresh = LCD_STATUS_VERTICAL_REFRESH(status);
+    lcd_status->row_column_exchange = LCD_STATUS_ROW_COLUMN_EXCHANGE(status);
+    lcd_status->column_address_order = LCD_STATUS_COLUMN_ADDRESS_ORDER(status);
+    lcd_status->row_address_order = LCD_STATUS_ROW_ADDRESS_ORDER(status);
+    lcd_status->booster_voltage = LCD_STATUS_BOOSTER_VOLTAGE(status);
 }
