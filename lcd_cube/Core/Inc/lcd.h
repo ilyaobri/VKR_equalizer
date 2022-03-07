@@ -70,7 +70,7 @@ typedef struct {
     u32 columns;
     u32 pages;
 
-    lcd_state_t state;
+    volatile lcd_state_t state;
 } lcd_t;
 
 typedef struct {
@@ -154,6 +154,8 @@ void lcd_cmd_read_id4(lcd_t *lcd, lcd_id4_t *id4);
 u32 lcd_cmd_read_display_status(lcd_t *lcd);
 
 void lcd_parse_status(u32 status, lcd_status_t *lcd_status);
+
+void lcd_wait_idle(lcd_t *lcd);
 
 void lcd_frame_dma(lcd_t *lcd, u16 *frame);
 

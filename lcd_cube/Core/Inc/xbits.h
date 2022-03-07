@@ -43,4 +43,9 @@ static inline void insert_u32(u32* dst, u32 src, u8 high, u8 low) {
     *dst = pattern | masked;
 }
 
+#define MODIND(array, index, size) array[(index) % (size)]
+
+#define MAX_OF(a, b) ((a) < (b)) ? (b) : (a)
+#define MIN_OF(a, b) ((a) > (b)) ? (b) : (a)
+
 #endif //LCD_CUBE_XBITS_H

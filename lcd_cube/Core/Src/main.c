@@ -40,7 +40,7 @@
 
 /* Private variables ---------------------------------------------------------*/
 
-DMA_HandleTypeDef hdma_memtomem_dma1_stream0;
+DMA_HandleTypeDef hdma_memtomem_dma1_stream2;
 SRAM_HandleTypeDef hsram1;
 
 /* USER CODE BEGIN PV */
@@ -106,28 +106,21 @@ int main(void)
     ZEROED_STRUCT(lcd_t, lcd);
 
     lcd_config_regs(&lcd, FMC_BANK1_BASE_ADDRESS, FMC_ADDRESS_LINE);
-    lcd_config_dma(&lcd, &hdma_memtomem_dma1_stream0);
+    lcd_config_dma(&lcd, &hdma_memtomem_dma1_stream2);
     lcd_config_led(&lcd, LCD_LED_GPIO_Port, LCD_LED_Pin);
     lcd_config_size(&lcd, LCD_WIDTH, LCD_HEIGHT, 1);
 
-    ZEROED_STRUCT(volatile lcd_id4_t, id);
-    ZEROED_STRUCT(volatile lcd_status_t, status);
+    ZEROED_STRUCT(lcd_id4_t, id);
+    ZEROED_STRUCT(lcd_status_t, status);
 
     lcd_init(&lcd, &id, &status);
 
     HAL_Delay(1000);
 
-    u16* iter = &frame[0];
+    u16 colors[] = { RED, GREEN, BLUE, YELLOW };
+    u32 cycle = 0;
 
-    for (u32 k = 0; k < LCD_TOTAL_POINT / 2; k++) {
-        *iter++ = CYAN;
-    }
-
-    for (u32 k = 0; k < LCD_TOTAL_POINT / 2; k++) {
-        *iter++ = YELLOW;
-    }
-
-    lcd_frame_dma(&lcd, frame);
+    vu32 next_draw_ticks = HAL_GetTick() + 500;
 
   /* USER CODE END 2 */
 
@@ -135,6 +128,34 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+      u16* iter = &frame[0];
+
+      for (u32 k = 0; k < LCD_TOTAL_POINT / 4; k++) {
+          *iter++ = MODIND(colors, cycle + 0, 4);
+      }
+
+      for (u32 k = 0; k < LCD_TOTAL_POINT / 4; k++) {
+          *iter++ = MODIND(colors, cycle + 1, 4);
+      }
+
+      for (u32 k = 0; k < LCD_TOTAL_POINT / 4; k++) {
+          *iter++ = MODIND(colors, cycle + 2, 4);
+      }
+
+      for (u32 k = 0; k < LCD_TOTAL_POINT / 4; k++) {
+          *iter++ = MODIND(colors, cycle + 3, 4);
+      }
+
+      while (next_draw_ticks - HAL_GetTick() != 0) {
+
+      }
+
+      next_draw_ticks = HAL_GetTick() + 500;
+
+      lcd_frame_dma(&lcd, frame);
+      lcd_wait_idle(&lcd);
+
+      cycle++;
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -201,7 +222,7 @@ void SystemClock_Config(void)
 /**
   * Enable DMA controller clock
   * Configure DMA for memory to memory transfers
-  *   hdma_memtomem_dma1_stream0
+  *   hdma_memtomem_dma1_stream2
   */
 static void MX_DMA_Init(void)
 {
@@ -209,24 +230,29 @@ static void MX_DMA_Init(void)
   /* DMA controller clock enable */
   __HAL_RCC_DMA1_CLK_ENABLE();
 
-  /* Configure DMA request hdma_memtomem_dma1_stream0 on DMA1_Stream0 */
-  hdma_memtomem_dma1_stream0.Instance = DMA1_Stream0;
-  hdma_memtomem_dma1_stream0.Init.Request = DMA_REQUEST_MEM2MEM;
-  hdma_memtomem_dma1_stream0.Init.Direction = DMA_MEMORY_TO_MEMORY;
-  hdma_memtomem_dma1_stream0.Init.PeriphInc = DMA_PINC_ENABLE;
-  hdma_memtomem_dma1_stream0.Init.MemInc = DMA_MINC_DISABLE;
-  hdma_memtomem_dma1_stream0.Init.PeriphDataAlignment = DMA_PDATAALIGN_HALFWORD;
-  hdma_memtomem_dma1_stream0.Init.MemDataAlignment = DMA_MDATAALIGN_HALFWORD;
-  hdma_memtomem_dma1_stream0.Init.Mode = DMA_NORMAL;
-  hdma_memtomem_dma1_stream0.Init.Priority = DMA_PRIORITY_HIGH;
-  hdma_memtomem_dma1_stream0.Init.FIFOMode = DMA_FIFOMODE_ENABLE;
-  hdma_memtomem_dma1_stream0.Init.FIFOThreshold = DMA_FIFO_THRESHOLD_FULL;
-  hdma_memtomem_dma1_stream0.Init.MemBurst = DMA_MBURST_SINGLE;
-  hdma_memtomem_dma1_stream0.Init.PeriphBurst = DMA_PBURST_SINGLE;
-  if (HAL_DMA_Init(&hdma_memtomem_dma1_stream0) != HAL_OK)
+  /* Configure DMA request hdma_memtomem_dma1_stream2 on DMA1_Stream2 */
+  hdma_memtomem_dma1_stream2.Instance = DMA1_Stream2;
+  hdma_memtomem_dma1_stream2.Init.Request = DMA_REQUEST_MEM2MEM;
+  hdma_memtomem_dma1_stream2.Init.Direction = DMA_MEMORY_TO_MEMORY;
+  hdma_memtomem_dma1_stream2.Init.PeriphInc = DMA_PINC_ENABLE;
+  hdma_memtomem_dma1_stream2.Init.MemInc = DMA_MINC_DISABLE;
+  hdma_memtomem_dma1_stream2.Init.PeriphDataAlignment = DMA_PDATAALIGN_HALFWORD;
+  hdma_memtomem_dma1_stream2.Init.MemDataAlignment = DMA_MDATAALIGN_HALFWORD;
+  hdma_memtomem_dma1_stream2.Init.Mode = DMA_NORMAL;
+  hdma_memtomem_dma1_stream2.Init.Priority = DMA_PRIORITY_HIGH;
+  hdma_memtomem_dma1_stream2.Init.FIFOMode = DMA_FIFOMODE_ENABLE;
+  hdma_memtomem_dma1_stream2.Init.FIFOThreshold = DMA_FIFO_THRESHOLD_1QUARTERFULL;
+  hdma_memtomem_dma1_stream2.Init.MemBurst = DMA_MBURST_SINGLE;
+  hdma_memtomem_dma1_stream2.Init.PeriphBurst = DMA_PBURST_SINGLE;
+  if (HAL_DMA_Init(&hdma_memtomem_dma1_stream2) != HAL_OK)
   {
     Error_Handler( );
   }
+
+  /* DMA interrupt init */
+  /* DMA1_Stream2_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA1_Stream2_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA1_Stream2_IRQn);
 
 }
 
@@ -287,9 +313,13 @@ static void MX_FMC_Init(void)
     Error_Handler( );
   }
 
-//  HAL_SetFMCMemorySwappingConfig(FMC_SWAPBMAP_SDRAM_SRAM);
+  HAL_SetFMCMemorySwappingConfig(FMC_SWAPBMAP_SDRAM_SRAM);
 
   /* USER CODE BEGIN FMC_Init 2 */
+
+  // IDK how to remove previous line from Cube
+  // Required to get rid of HardFault when access to 0x6000_0000 address range
+  HAL_SetFMCMemorySwappingConfig(FMC_SWAPBMAP_DISABLE);
 
   /* USER CODE END FMC_Init 2 */
 }

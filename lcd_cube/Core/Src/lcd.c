@@ -117,11 +117,11 @@ u32 lcd_cmd_read_display_status(lcd_t *lcd) {
 
 // -------------------- lcd_t configuration functions --------------------
 
-void lcd_dma_transfer_complete(DMA_HandleTypeDef *dma);
+void lcd_transfer_complete(DMA_HandleTypeDef *dma);
 
 void lcd_config_dma(lcd_t *lcd, DMA_HandleTypeDef *dma) {
     lcd->dma = dma;
-    HAL_DMA_RegisterCallback(dma, HAL_DMA_XFER_CPLT_CB_ID, lcd_dma_transfer_complete);
+    HAL_DMA_RegisterCallback(dma, HAL_DMA_XFER_CPLT_CB_ID, lcd_transfer_complete);
 }
 
 void lcd_config_regs(lcd_t *lcd, u32 base, u8 dc_pin) {
@@ -224,7 +224,7 @@ void lcd_init(lcd_t *lcd, lcd_id4_t *id, lcd_status_t *status) {
         lcd_parse_status(data, status);
     }
 
-    lcd_fill(lcd, RED);
+    lcd_fill(lcd, CYAN);
 
     lcd_led_write(lcd, GPIO_PIN_SET);
 }
@@ -237,27 +237,72 @@ u32 lcd_prepare_draw(lcd_t *lcd) {
     return lcd->columns * lcd->pages;
 }
 
-lcd_t *lcd_on_dma = NULL;
+typedef struct {
+    lcd_t *lcd;
+    vu16* ptr;
+    vu32 remain;
+    vu32 size;
+} transfer_t;
 
-void lcd_dma_transfer_complete(DMA_HandleTypeDef *dma) {
-    if (dma == lcd_on_dma->dma) {
-        lcd_on_dma->state = LCD_STATE_IDLE;
-        lcd_on_dma = NULL;
+ZEROED_STRUCT(transfer_t, transfer);
+
+#define DMA_MAX_TRANSFER_SIZE UINT16_MAX
+
+void lcd_transfer_init(lcd_t *lcd, u16* frame, u32 total) {
+    lcd->state = LCD_STATE_BUSY;
+
+    transfer.lcd = lcd;
+    transfer.ptr = frame;
+    transfer.remain = total;
+
+    // split in a half
+    transfer.size = MIN_OF(total / 2, DMA_MAX_TRANSFER_SIZE);
+}
+
+void lcd_transfer_stop() {
+    transfer.lcd->state = LCD_STATE_IDLE;
+    transfer.lcd = NULL;
+
+    transfer.ptr = NULL;
+    transfer.remain = 0;
+    transfer.size = 0;
+}
+
+void lcd_transfer_start() {
+    if (transfer.size > transfer.remain) {
+        transfer.size = transfer.remain;
+    } else if (transfer.size == 0) {
+        transfer.size = MIN_OF(transfer.remain, DMA_MAX_TRANSFER_SIZE);
+    }
+    HAL_DMA_Start_IT(transfer.lcd->dma, (u32) transfer.ptr, (u32) transfer.lcd->regs.data, transfer.size);
+}
+
+void lcd_transfer_complete(DMA_HandleTypeDef *dma) {
+    if (dma == transfer.lcd->dma) {
+        transfer.remain -= transfer.size;
+        if (transfer.remain == 0) {
+            lcd_transfer_stop();
+        } else {
+            transfer.ptr += transfer.size;
+            lcd_transfer_start();
+        }
+    }
+}
+
+void lcd_wait_idle(lcd_t *lcd) {
+    while (lcd->state != LCD_STATE_IDLE) {
+
     }
 }
 
 void lcd_frame_dma(lcd_t *lcd, u16 *frame) {
     assert(lcd->dma != NULL);
     assert(lcd->state == LCD_STATE_IDLE);
-    assert(lcd_on_dma == NULL);
 
     u32 total = lcd_prepare_draw(lcd);
 
-    lcd->state = LCD_STATE_BUSY;
-
-    lcd_on_dma = lcd;
-
-    HAL_DMA_Start_IT(lcd->dma, (u32) frame, (u32) lcd->regs.data, total);
+    lcd_transfer_init(lcd, frame, total);
+    lcd_transfer_start();
 }
 
 void lcd_frame(lcd_t *lcd, u16 *frame) {
