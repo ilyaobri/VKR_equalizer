@@ -17,7 +17,6 @@
   */
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
-#include <stdio.h>
 #include "main.h"
 
 /* Private includes ----------------------------------------------------------*/
@@ -41,6 +40,7 @@
 
 /* Private variables ---------------------------------------------------------*/
 
+DMA_HandleTypeDef hdma_memtomem_dma1_stream0;
 SRAM_HandleTypeDef hsram1;
 
 /* USER CODE BEGIN PV */
@@ -52,13 +52,14 @@ void SystemClock_Config(void);
 static void MPU_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_FMC_Init(void);
+static void MX_DMA_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-
+u16 frame[LCD_TOTAL_POINT];
 /* USER CODE END 0 */
 
 /**
@@ -99,17 +100,34 @@ int main(void)
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_FMC_Init();
+  MX_DMA_Init();
   /* USER CODE BEGIN 2 */
 
-  lcd_t lcd;
+    ZEROED_STRUCT(lcd_t, lcd);
 
-  lcd_config_regs(&lcd, 0x60000000, 19);
-  lcd_config_led(&lcd, LCD_LED_GPIO_Port, LCD_LED_Pin);
-  lcd_config_size(&lcd, 320, 240, 1);
+    lcd_config_regs(&lcd, FMC_BANK1_BASE_ADDRESS, FMC_ADDRESS_LINE);
+    lcd_config_dma(&lcd, &hdma_memtomem_dma1_stream0);
+    lcd_config_led(&lcd, LCD_LED_GPIO_Port, LCD_LED_Pin);
+    lcd_config_size(&lcd, LCD_WIDTH, LCD_HEIGHT, 1);
 
-  lcd_init(&lcd);
+    ZEROED_STRUCT(volatile lcd_id4_t, id);
+    ZEROED_STRUCT(volatile lcd_status_t, status);
 
-//  lcd_fill(&lcd, RED);
+    lcd_init(&lcd, &id, &status);
+
+    HAL_Delay(1000);
+
+    u16* iter = &frame[0];
+
+    for (u32 k = 0; k < LCD_TOTAL_POINT / 2; k++) {
+        *iter++ = CYAN;
+    }
+
+    for (u32 k = 0; k < LCD_TOTAL_POINT / 2; k++) {
+        *iter++ = YELLOW;
+    }
+
+    lcd_frame_dma(&lcd, frame);
 
   /* USER CODE END 2 */
 
@@ -178,6 +196,38 @@ void SystemClock_Config(void)
   {
     Error_Handler();
   }
+}
+
+/**
+  * Enable DMA controller clock
+  * Configure DMA for memory to memory transfers
+  *   hdma_memtomem_dma1_stream0
+  */
+static void MX_DMA_Init(void)
+{
+
+  /* DMA controller clock enable */
+  __HAL_RCC_DMA1_CLK_ENABLE();
+
+  /* Configure DMA request hdma_memtomem_dma1_stream0 on DMA1_Stream0 */
+  hdma_memtomem_dma1_stream0.Instance = DMA1_Stream0;
+  hdma_memtomem_dma1_stream0.Init.Request = DMA_REQUEST_MEM2MEM;
+  hdma_memtomem_dma1_stream0.Init.Direction = DMA_MEMORY_TO_MEMORY;
+  hdma_memtomem_dma1_stream0.Init.PeriphInc = DMA_PINC_ENABLE;
+  hdma_memtomem_dma1_stream0.Init.MemInc = DMA_MINC_DISABLE;
+  hdma_memtomem_dma1_stream0.Init.PeriphDataAlignment = DMA_PDATAALIGN_HALFWORD;
+  hdma_memtomem_dma1_stream0.Init.MemDataAlignment = DMA_MDATAALIGN_HALFWORD;
+  hdma_memtomem_dma1_stream0.Init.Mode = DMA_NORMAL;
+  hdma_memtomem_dma1_stream0.Init.Priority = DMA_PRIORITY_HIGH;
+  hdma_memtomem_dma1_stream0.Init.FIFOMode = DMA_FIFOMODE_ENABLE;
+  hdma_memtomem_dma1_stream0.Init.FIFOThreshold = DMA_FIFO_THRESHOLD_FULL;
+  hdma_memtomem_dma1_stream0.Init.MemBurst = DMA_MBURST_SINGLE;
+  hdma_memtomem_dma1_stream0.Init.PeriphBurst = DMA_PBURST_SINGLE;
+  if (HAL_DMA_Init(&hdma_memtomem_dma1_stream0) != HAL_OK)
+  {
+    Error_Handler( );
+  }
+
 }
 
 /* FMC initialization function */

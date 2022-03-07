@@ -41,4 +41,6 @@ typedef volatile const uint8_t vuc8;
 
 typedef const char* string;
 
+#define ZEROED_STRUCT(type, name) type name = { 0 }
+
 #endif //LCD_CUBE_TYPES_H

@@ -51,9 +51,17 @@ typedef struct {
     u16 pin;
 } lcd_led_t;
 
+typedef volatile enum {
+    LCD_STATE_IDLE = 0,
+    LCD_STATE_BUSY = 1,
+    LCD_STATE_ERROR = 2
+} lcd_state_t;
+
 typedef struct {
     lcd_regs_t regs;
     lcd_led_t led;
+
+    DMA_HandleTypeDef *dma;
 
     u32 width;
     u32 height;
@@ -61,6 +69,8 @@ typedef struct {
 
     u32 columns;
     u32 pages;
+
+    lcd_state_t state;
 } lcd_t;
 
 typedef struct {
@@ -131,6 +141,8 @@ typedef struct {
 #define LGRAYBLUE   0xA651
 #define LBBLUE      0x2B12
 
+void lcd_config_dma(lcd_t *lcd, DMA_HandleTypeDef *dma);
+
 void lcd_config_regs(lcd_t *lcd, u32 base, u8 dc_pin);
 
 void lcd_config_led(lcd_t *lcd, GPIO_TypeDef *led_port, u16 led_pin);
@@ -143,11 +155,13 @@ u32 lcd_cmd_read_display_status(lcd_t *lcd);
 
 void lcd_parse_status(u32 status, lcd_status_t *lcd_status);
 
+void lcd_frame_dma(lcd_t *lcd, u16 *frame);
+
 void lcd_frame(lcd_t *lcd, u16 *frame);
 
 void lcd_fill(lcd_t *lcd, u16 color);
 
-void lcd_init(lcd_t *lcd);
+void lcd_init(lcd_t *lcd, lcd_id4_t *id, lcd_status_t *status);
 
 void lcd_led(lcd_t *lcd, u32 state);
 

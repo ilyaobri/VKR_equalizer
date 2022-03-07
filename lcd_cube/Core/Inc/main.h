@@ -60,7 +60,13 @@ void Error_Handler(void);
 #define LCD_LED_Pin GPIO_PIN_5
 #define LCD_LED_GPIO_Port GPIOB
 /* USER CODE BEGIN Private defines */
+#define LCD_WIDTH 320
+#define LCD_HEIGHT 240
 
+#define LCD_TOTAL_POINT LCD_WIDTH * LCD_HEIGHT
+
+#define FMC_BANK1_BASE_ADDRESS 0x60000000
+#define FMC_ADDRESS_LINE 19
 /* USER CODE END Private defines */
 
 #ifdef __cplusplus

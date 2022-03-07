@@ -117,6 +117,13 @@ u32 lcd_cmd_read_display_status(lcd_t *lcd) {
 
 // -------------------- lcd_t configuration functions --------------------
 
+void lcd_dma_transfer_complete(DMA_HandleTypeDef *dma);
+
+void lcd_config_dma(lcd_t *lcd, DMA_HandleTypeDef *dma) {
+    lcd->dma = dma;
+    HAL_DMA_RegisterCallback(dma, HAL_DMA_XFER_CPLT_CB_ID, lcd_dma_transfer_complete);
+}
+
 void lcd_config_regs(lcd_t *lcd, u32 base, u8 dc_pin) {
     u32 offset = base | 1 << dc_pin;
     lcd->regs.cmd = (vu16*) (offset - 2);
@@ -164,12 +171,13 @@ void lcd_direction(lcd_t *lcd) {
     }
 }
 
-void lcd_init(lcd_t *lcd) {
-    lcd_id4_t lcd_id4;
+void lcd_init(lcd_t *lcd, lcd_id4_t *id, lcd_status_t *status) {
+    if (id != NULL) {
+        lcd_cmd_read_id4(lcd, id);
+    }
 
-    lcd_cmd_read_id4(lcd, &lcd_id4);
-
-    vu32 status1 = lcd_cmd_read_display_status(lcd);
+    // I'm not sure but may be won't work without it
+    vu32 not_used = lcd_cmd_read_display_status(lcd);
 
     LCD_WRITE(lcd, LCD_CMD_POWER_CONTROL_B, 0x00, 0xD9, 0x30);
     LCD_WRITE(lcd, LCD_CMD_POWER_ON_SEQUENCE_CONTROL, 0x64, 0x03, 0x12, 0x81);
@@ -211,17 +219,14 @@ void lcd_init(lcd_t *lcd) {
 
     lcd_direction(lcd);
 
-    vu32 status2 = lcd_cmd_read_display_status(lcd);
+    if (status != NULL) {
+        vu32 data = lcd_cmd_read_display_status(lcd);
+        lcd_parse_status(data, status);
+    }
 
-    lcd_fill(lcd, WHITE);
+    lcd_fill(lcd, RED);
 
     lcd_led_write(lcd, GPIO_PIN_SET);
-
-    lcd_status_t lcd_status1 = { 0 };
-    lcd_status_t lcd_status2 = { 0 };
-
-    lcd_parse_status(status1, &lcd_status1);
-    lcd_parse_status(status2, &lcd_status2);
 }
 
 u32 lcd_prepare_draw(lcd_t *lcd) {
@@ -232,12 +237,39 @@ u32 lcd_prepare_draw(lcd_t *lcd) {
     return lcd->columns * lcd->pages;
 }
 
+lcd_t *lcd_on_dma = NULL;
+
+void lcd_dma_transfer_complete(DMA_HandleTypeDef *dma) {
+    if (dma == lcd_on_dma->dma) {
+        lcd_on_dma->state = LCD_STATE_IDLE;
+        lcd_on_dma = NULL;
+    }
+}
+
+void lcd_frame_dma(lcd_t *lcd, u16 *frame) {
+    assert(lcd->dma != NULL);
+    assert(lcd->state == LCD_STATE_IDLE);
+    assert(lcd_on_dma == NULL);
+
+    u32 total = lcd_prepare_draw(lcd);
+
+    lcd->state = LCD_STATE_BUSY;
+
+    lcd_on_dma = lcd;
+
+    HAL_DMA_Start_IT(lcd->dma, (u32) frame, (u32) lcd->regs.data, total);
+}
+
 void lcd_frame(lcd_t *lcd, u16 *frame) {
     u32 total = lcd_prepare_draw(lcd);
+
+    lcd->state = LCD_STATE_BUSY;
 
     for (u32 k = 0; k < total; k++) {
         lcd_write_data(lcd, frame[k]);
     }
+
+    lcd->state = LCD_STATE_IDLE;
 }
 
 void lcd_fill(lcd_t *lcd, u16 color) {
