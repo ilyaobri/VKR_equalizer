@@ -317,7 +317,7 @@ void lcd_frame(lcd_t *lcd, u16 *frame) {
     lcd->state = LCD_STATE_IDLE;
 }
 
-void lcd_fill(lcd_t *lcd, u16 color) {
+void lcd_fill(lcd_t *lcd, color_t color) {
     u32 total = lcd_prepare_draw(lcd);
 
     for (u32 k = 0; k < total; k++) {

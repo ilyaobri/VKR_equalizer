@@ -4,6 +4,7 @@
 #include "types.h"
 #include "xbits.h"
 #include "main.h"
+#include "color.h"
 #include "stm32h7xx_hal.h"
 
 typedef enum {
@@ -118,29 +119,6 @@ typedef struct {
 #define LCD_STATUS_DISPLAY_ON(status) xbit_u32(status, 10)
 #define LCD_STATUS_GAMMA_CURVE(status) xbits_u32(status, 8, 6)
 
-#define WHITE       0xFFFF
-#define BLACK       0x0000
-#define BLUE        0x001F
-#define BRED        0xF81F
-#define GRED        0xFFE0
-#define GBLUE       0x07FF
-#define RED         0xF800
-#define MAGENTA     0xF81F
-#define GREEN       0x07E0
-#define CYAN        0x7FFF
-#define YELLOW      0xFFE0
-#define BROWN       0xBC40
-#define BRRED       0xFC07
-#define GRAY        0x8430
-#define DARKBLUE    0x01CF
-#define LIGHTBLUE   0x7D7C
-#define GRAYBLUE    0x5458
-#define LIGHTGREEN  0x841F
-#define LIGHTGRAY   0xEF5B
-#define LGRAY       0xC618
-#define LGRAYBLUE   0xA651
-#define LBBLUE      0x2B12
-
 void lcd_config_dma(lcd_t *lcd, DMA_HandleTypeDef *dma);
 
 void lcd_config_regs(lcd_t *lcd, u32 base, u8 dc_pin);
@@ -161,7 +139,7 @@ void lcd_frame_dma(lcd_t *lcd, u16 *frame);
 
 void lcd_frame(lcd_t *lcd, u16 *frame);
 
-void lcd_fill(lcd_t *lcd, u16 color);
+void lcd_fill(lcd_t *lcd, color_t color);
 
 void lcd_init(lcd_t *lcd, lcd_id4_t *id, lcd_status_t *status);
 

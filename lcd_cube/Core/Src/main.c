@@ -22,6 +22,10 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "lcd.h"
+#include "draw.h"
+#include "stdlib.h"
+#include "string.h"
+#include "stdio.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -54,12 +58,25 @@ static void MX_GPIO_Init(void);
 static void MX_FMC_Init(void);
 static void MX_DMA_Init(void);
 /* USER CODE BEGIN PFP */
+vu32 next_draw_ticks = 0;
 
+static inline void vertical_sync(u32 period) {
+    if (next_draw_ticks == 0) {
+        next_draw_ticks = HAL_GetTick() + period;
+        return;
+    }
+
+    while (next_draw_ticks - HAL_GetTick() != 0) {
+
+    }
+
+    next_draw_ticks = HAL_GetTick() + period;
+}
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-u16 frame[LCD_TOTAL_POINT];
+u16 canvas[LCD_TOTAL_POINT];
 /* USER CODE END 0 */
 
 /**
@@ -117,10 +134,14 @@ int main(void)
 
     HAL_Delay(1000);
 
-    u16 colors[] = { RED, GREEN, BLUE, YELLOW };
+    color_t colors[] = { RED, GREEN, BLUE, YELLOW };
     u32 cycle = 0;
 
-    vu32 next_draw_ticks = HAL_GetTick() + 500;
+    ZEROED_STRUCT(frame_t, frame);
+
+    frame_init(&frame, canvas, LCD_WIDTH, LCD_HEIGHT);
+
+    u32 frame_time = 0;
 
   /* USER CODE END 2 */
 
@@ -128,32 +149,30 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-      u16* iter = &frame[0];
+        u32 frame_start = HAL_GetTick();
 
-      for (u32 k = 0; k < LCD_TOTAL_POINT / 4; k++) {
-          *iter++ = MODIND(colors, cycle + 0, 4);
-      }
+//        u32 stripes = 4;
+//        u32 step = LCD_HEIGHT / stripes;
+//        for (u32 height = 0, stripe = 0; stripe < stripes; height += step, stripe++) {
+//            color_t color = MODIND(colors, cycle + stripe, stripes);
+//            frame_draw_rect(&frame, color, 0, height, LCD_WIDTH - 1, height + step - 1);
+//        }
 
-      for (u32 k = 0; k < LCD_TOTAL_POINT / 4; k++) {
-          *iter++ = MODIND(colors, cycle + 1, 4);
-      }
+      frame_fill(&frame, BLACK);
 
-      for (u32 k = 0; k < LCD_TOTAL_POINT / 4; k++) {
-          *iter++ = MODIND(colors, cycle + 2, 4);
-      }
+//      frame_draw_char(&frame, WHITE, 10, 10, FONT_SIZE_16, 'A');
 
-      for (u32 k = 0; k < LCD_TOTAL_POINT / 4; k++) {
-          *iter++ = MODIND(colors, cycle + 3, 4);
-      }
+      float fps = (frame_time != 0) ? 1000.0f / (float) frame_time : -1.0f;
 
-      while (next_draw_ticks - HAL_GetTick() != 0) {
+      frame_printf_string(
+              &frame, WHITE, 4, 4, FONT_SIZE_16,
+              "Hello world, I'm display\nfps: %.1f\nI will fuck ur eyes!", fps);
 
-      }
+      vertical_sync(100);
 
-      next_draw_ticks = HAL_GetTick() + 500;
+      lcd_frame(&lcd, frame.canvas);
 
-      lcd_frame_dma(&lcd, frame);
-      lcd_wait_idle(&lcd);
+      frame_time = HAL_GetTick() - frame_start;
 
       cycle++;
     /* USER CODE END WHILE */
@@ -300,9 +319,9 @@ static void MX_FMC_Init(void)
   Timing.DataLatency = 17;
   Timing.AccessMode = FMC_ACCESS_MODE_A;
   /* ExtTiming */
-  ExtTiming.AddressSetupTime = 13;
-  ExtTiming.AddressHoldTime = 15;
-  ExtTiming.DataSetupTime = 13;
+  ExtTiming.AddressSetupTime = 5;
+  ExtTiming.AddressHoldTime = 0;
+  ExtTiming.DataSetupTime = 5;
   ExtTiming.BusTurnAroundDuration = 0x0;
   ExtTiming.CLKDivision = 16;
   ExtTiming.DataLatency = 17;
